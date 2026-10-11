@@ -1,0 +1,405 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Primitive Helpers
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Bootstrapped Supreme Admin ("Obster") or DB-verified role helpers (strictly for get/write)
+    function isBootstrappedObster() {
+      return isSignedIn() && request.auth.token.email == 'zuluobster@gmail.com';
+    }
+
+    function userDocExists(uid) {
+      return exists(/databases/$(database)/documents/users/$(uid));
+    }
+
+    function getUserRole(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data.role;
+    }
+
+    function getUserStatus(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data.status;
+    }
+
+    function isSupremeObster() {
+      return isBootstrappedObster() || (isSignedIn() && userDocExists(request.auth.uid) && getUserRole(request.auth.uid) == 'supreme_obster');
+    }
+
+    function isSupremeKunda5() {
+      return isSignedIn() && userDocExists(request.auth.uid) && getUserRole(request.auth.uid) == 'supreme_kunda5';
+    }
+
+    function isSupremeAdmin() {
+      return isSupremeObster() || isSupremeKunda5();
+    }
+
+    function isTutorAdmin() {
+      return isSignedIn() && userDocExists(request.auth.uid) && getUserRole(request.auth.uid) == 'admin';
+    }
+
+    function isAnyAdmin() {
+      return isSupremeAdmin() || isTutorAdmin();
+    }
+
+    function isApprovedMember() {
+      return isAnyAdmin() || (isSignedIn() && userDocExists(request.auth.uid) && getUserStatus(request.auth.uid) == 'approved');
+    }
+
+    // 3. Entity Validation Blueprints
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'name', 'role', 'status', 'approvedAt', 'expiresAt', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'name', 'role', 'status', 'approvedAt', 'expiresAt', 'createdAt', 'updatedAt'])
+        && data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 && data.uid.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 100
+        && data.role is string && (data.role == 'supreme_obster' || data.role == 'supreme_kunda5' || data.role == 'admin' || data.role == 'member')
+        && data.status is string && (data.status == 'pending' || data.status == 'approved' || data.status == 'rejected' || data.status == 'expired')
+        && data.approvedAt is string && data.approvedAt.size() <= 64
+        && data.expiresAt is string && data.expiresAt.size() <= 64
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidUserPrivate(data) {
+      return data.keys().hasAll(['uid', 'email', 'phone', 'passwordHash', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'email', 'phone', 'passwordHash', 'createdAt', 'updatedAt'])
+        && data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 && data.uid.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 150
+        && data.phone is string && data.phone.size() >= 5 && data.phone.size() <= 30
+        && data.passwordHash is string && data.passwordHash.size() >= 8 && data.passwordHash.size() <= 256
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidCourse(data) {
+      return data.keys().hasAll(['code', 'title', 'year', 'subject', 'description', 'createdBy', 'createdAt'])
+        && data.keys().hasOnly(['code', 'title', 'year', 'subject', 'description', 'createdBy', 'createdAt'])
+        && data.code is string && data.code.size() >= 3 && data.code.size() <= 20 && data.code.matches('^[A-Z0-9\\-]+$')
+        && data.title is string && data.title.size() >= 2 && data.title.size() <= 120
+        && data.year is number && (data.year == 1 || data.year == 2 || data.year == 3 || data.year == 4)
+        && data.subject is string && (data.subject == 'Mathematics' || data.subject == 'Biology' || data.subject == 'Physics' || data.subject == 'Chemistry' || data.subject == 'Computer Science' || data.subject == 'Languages')
+        && data.description is string && data.description.size() >= 5 && data.description.size() <= 600
+        && data.createdBy is string && data.createdBy.size() >= 1 && data.createdBy.size() <= 128 && data.createdBy.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.createdAt is timestamp;
+    }
+
+    function isValidMaterial(data) {
+      return data.keys().hasAll(['title', 'courseCode', 'category', 'description', 'fileUrl', 'fileName', 'uploadedBy', 'uploaderName', 'createdAt'])
+        && data.keys().hasOnly(['title', 'courseCode', 'category', 'description', 'fileUrl', 'fileName', 'uploadedBy', 'uploaderName', 'createdAt'])
+        && data.title is string && data.title.size() >= 2 && data.title.size() <= 150
+        && data.courseCode is string && data.courseCode.size() >= 2 && data.courseCode.size() <= 20
+        && data.category is string && (data.category == 'Notes' || data.category == 'Assignment Questions')
+        && data.description is string && data.description.size() >= 2 && data.description.size() <= 800
+        && data.fileUrl is string && data.fileUrl.size() >= 5 && data.fileUrl.size() <= 700000
+        && data.fileName is string && data.fileName.size() >= 1 && data.fileName.size() <= 180
+        && data.uploadedBy is string && data.uploadedBy.size() >= 1 && data.uploadedBy.size() <= 128 && data.uploadedBy.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.uploaderName is string && data.uploaderName.size() >= 1 && data.uploaderName.size() <= 100
+        && data.createdAt is timestamp;
+    }
+
+    function isValidVideo(data) {
+      return data.keys().hasAll(['title', 'courseCode', 'description', 'videoUrl', 'duration', 'uploadedBy', 'uploaderName', 'createdAt'])
+        && data.keys().hasOnly(['title', 'courseCode', 'description', 'videoUrl', 'duration', 'uploadedBy', 'uploaderName', 'createdAt'])
+        && data.title is string && data.title.size() >= 2 && data.title.size() <= 150
+        && data.courseCode is string && data.courseCode.size() >= 2 && data.courseCode.size() <= 20
+        && data.description is string && data.description.size() >= 2 && data.description.size() <= 600
+        && data.videoUrl is string && data.videoUrl.size() >= 5 && data.videoUrl.size() <= 700000
+        && data.duration is string && data.duration.size() >= 2 && data.duration.size() <= 30
+        && data.uploadedBy is string && data.uploadedBy.size() >= 1 && data.uploadedBy.size() <= 128 && data.uploadedBy.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.uploaderName is string && data.uploaderName.size() >= 1 && data.uploaderName.size() <= 100
+        && data.createdAt is timestamp;
+    }
+
+    function isValidQuestion(data) {
+      return data.keys().hasAll(['studentId', 'studentName', 'courseCode', 'title', 'questionText', 'status', 'answerText', 'answeredBy', 'answeredByName', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['studentId', 'studentName', 'courseCode', 'title', 'questionText', 'status', 'answerText', 'answeredBy', 'answeredByName', 'createdAt', 'updatedAt'])
+        && data.studentId is string && data.studentId.size() >= 1 && data.studentId.size() <= 128 && data.studentId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.studentName is string && data.studentName.size() >= 1 && data.studentName.size() <= 100
+        && data.courseCode is string && data.courseCode.size() >= 2 && data.courseCode.size() <= 20
+        && data.title is string && data.title.size() >= 2 && data.title.size() <= 150
+        && data.questionText is string && data.questionText.size() >= 5 && data.questionText.size() <= 2500
+        && data.status is string && (data.status == 'open' || data.status == 'answered')
+        && data.answerText is string && data.answerText.size() <= 4000
+        && data.answeredBy is string && data.answeredBy.size() <= 128
+        && data.answeredByName is string && data.answeredByName.size() <= 100
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidDiscussion(data) {
+      return data.keys().hasAll(['authorId', 'authorName', 'authorRole', 'courseCode', 'groupTitle', 'message', 'createdAt'])
+        && data.keys().hasOnly(['authorId', 'authorName', 'authorRole', 'courseCode', 'groupTitle', 'message', 'createdAt'])
+        && data.authorId is string && data.authorId.size() >= 1 && data.authorId.size() <= 128 && data.authorId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 100
+        && data.authorRole is string && (data.authorRole == 'supreme_obster' || data.authorRole == 'supreme_kunda5' || data.authorRole == 'admin' || data.authorRole == 'member')
+        && data.courseCode is string && data.courseCode.size() >= 2 && data.courseCode.size() <= 20
+        && data.groupTitle is string && data.groupTitle.size() >= 2 && data.groupTitle.size() <= 120
+        && data.message is string && data.message.size() >= 2 && data.message.size() <= 1500
+        && data.createdAt is timestamp;
+    }
+
+    function isValidEmailLog(data) {
+      return data.keys().hasAll(['recipientUid', 'recipientEmail', 'subject', 'body', 'eventType', 'sentByUid', 'createdAt'])
+        && data.keys().hasOnly(['recipientUid', 'recipientEmail', 'subject', 'body', 'eventType', 'sentByUid', 'createdAt'])
+        && data.recipientUid is string && data.recipientUid.size() >= 1 && data.recipientUid.size() <= 128 && data.recipientUid.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.recipientEmail is string && data.recipientEmail.size() >= 3 && data.recipientEmail.size() <= 150
+        && data.subject is string && data.subject.size() >= 2 && data.subject.size() <= 200
+        && data.body is string && data.body.size() >= 5 && data.body.size() <= 2000
+        && data.eventType is string && (data.eventType == 'APPROVED' || data.eventType == 'REJECTED' || data.eventType == 'RENEWED' || data.eventType == 'ROLE_CHANGED')
+        && data.sentByUid is string && data.sentByUid.size() >= 1 && data.sentByUid.size() <= 128 && data.sentByUid.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.createdAt is timestamp;
+    }
+
+    // 4. Collection Rules
+
+    // Users Collection (Public Role & Membership Status)
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAnyAdmin());
+      // Cost-optimized list rule (Zero get()/exists() calls in allow list)
+      allow list: if isSignedIn() && (existing().uid == request.auth.uid || isBootstrappedObster() || existing().status in ['pending', 'approved', 'rejected', 'expired']);
+
+      allow create: if isValidId(userId)
+        && isSignedIn()
+        && isValidUser(incoming())
+        && incoming().uid == userId
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (
+          // Standard self-signup: locked out as pending member by default
+          (request.auth.uid == userId && incoming().role == 'member' && incoming().status == 'pending') ||
+          // Bootstrapped Supreme Admin ("Obster") self-initialization or admin provisioning
+          (isSupremeObster()) ||
+          // Supreme Kunda5 provisioning non-Obster accounts
+          (isSupremeKunda5() && incoming().role != 'supreme_obster')
+        );
+
+      allow update: if isValidId(userId)
+        && isSignedIn()
+        && isValidUser(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          // Action 1: Owner updating only their display name
+          (isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'updatedAt'])) ||
+          // Action 2: Supreme Admin Obster full authority over any member or role
+          (isSupremeObster() && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'role', 'status', 'approvedAt', 'expiresAt', 'updatedAt'])) ||
+          // Action 3: Supreme Admin Kunda5 managing non-Obster members (cannot modify Obster or appoint Obster)
+          (isSupremeKunda5() && existing().role != 'supreme_obster' && incoming().role != 'supreme_obster' && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'role', 'status', 'approvedAt', 'expiresAt', 'updatedAt']))
+        );
+
+      allow delete: if isValidId(userId)
+        && isSignedIn()
+        && (
+          // Supreme Obster can remove any member (including Kunda5)
+          isSupremeObster() ||
+          // Supreme Kunda5 can remove members except Obster
+          (isSupremeKunda5() && existing().role != 'supreme_obster')
+        );
+
+      // Isolated PII Subcollection (/users/{userId}/private/{docId})
+      match /private/{docId} {
+        allow get: if isValidId(userId) && isValidId(docId)
+          && (isOwner(userId) || isAnyAdmin())
+          && exists(/databases/$(database)/documents/users/$(userId));
+
+        allow list: if isSignedIn() && (existing().uid == request.auth.uid || isBootstrappedObster());
+
+        allow create: if isValidId(userId) && isValidId(docId)
+          && isSignedIn()
+          && isValidUserPrivate(incoming())
+          && incoming().uid == userId
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && (isOwner(userId) || isSupremeAdmin())
+          && existsAfter(/databases/$(database)/documents/users/$(userId));
+
+        allow update: if isValidId(userId) && isValidId(docId)
+          && isSignedIn()
+          && isValidUserPrivate(incoming())
+          && incoming().uid == existing().uid
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && exists(/databases/$(database)/documents/users/$(userId))
+          && (
+            (isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly(['phone', 'passwordHash', 'updatedAt'])) ||
+            (isSupremeAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['email', 'phone', 'passwordHash', 'updatedAt']))
+          );
+
+        allow delete: if isValidId(userId) && isValidId(docId)
+          && isSignedIn()
+          && (isSupremeObster() || (isSupremeKunda5() && getUserRole(userId) != 'supreme_obster'));
+      }
+    }
+
+    // Courses Collection
+    match /courses/{courseId} {
+      allow get: if isValidId(courseId) && isApprovedMember();
+      allow list: if isSignedIn() && existing().year in [1, 2, 3, 4];
+
+      allow create: if isValidId(courseId)
+        && isSignedIn()
+        && isValidCourse(incoming())
+        && incoming().createdBy == request.auth.uid
+        && incoming().createdAt == request.time
+        && isAnyAdmin();
+
+      allow update: if isValidId(courseId)
+        && isSignedIn()
+        && isValidCourse(incoming())
+        && incoming().createdBy == existing().createdBy
+        && incoming().createdAt == existing().createdAt
+        && isAnyAdmin()
+        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'year', 'subject', 'description']);
+
+      allow delete: if isValidId(courseId) && isSupremeAdmin();
+    }
+
+    // Materials Collection (PDF Notes & Assignment Questions)
+    match /materials/{materialId} {
+      allow get: if isValidId(materialId) && isApprovedMember();
+      allow list: if isSignedIn() && (existing().category == 'Notes' || existing().category == 'Assignment Questions');
+
+      allow create: if isValidId(materialId)
+        && isSignedIn()
+        && isValidMaterial(incoming())
+        && incoming().uploadedBy == request.auth.uid
+        && incoming().createdAt == request.time
+        && isAnyAdmin();
+
+      allow update: if isValidId(materialId)
+        && isSignedIn()
+        && isValidMaterial(incoming())
+        && incoming().uploadedBy == existing().uploadedBy
+        && incoming().createdAt == existing().createdAt
+        && isAnyAdmin()
+        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'courseCode', 'category', 'description', 'fileUrl', 'fileName']);
+
+      allow delete: if isValidId(materialId) && isAnyAdmin();
+    }
+
+    // Tutorial Videos Collection
+    match /videos/{videoId} {
+      allow get: if isValidId(videoId) && isApprovedMember();
+      allow list: if isSignedIn() && (isBootstrappedObster() || existing().duration >= '');
+
+      allow create: if isValidId(videoId)
+        && isSignedIn()
+        && isValidVideo(incoming())
+        && incoming().uploadedBy == request.auth.uid
+        && incoming().createdAt == request.time
+        && isAnyAdmin();
+
+      allow update: if isValidId(videoId)
+        && isSignedIn()
+        && isValidVideo(incoming())
+        && incoming().uploadedBy == existing().uploadedBy
+        && incoming().createdAt == existing().createdAt
+        && isAnyAdmin()
+        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'courseCode', 'description', 'videoUrl', 'duration']);
+
+      allow delete: if isValidId(videoId) && isAnyAdmin();
+    }
+
+    // Private Student Assignment Questions & Admin Routing
+    match /questions/{questionId} {
+      allow get: if isValidId(questionId) && isSignedIn() && (existing().studentId == request.auth.uid || isAnyAdmin());
+      // Zero get() inside list: students query their own questions; admins query by status ('open' or 'answered') or bootstrapped Obster
+      allow list: if isSignedIn() && (existing().studentId == request.auth.uid || isBootstrappedObster() || existing().status in ['open', 'answered']);
+
+      allow create: if isValidId(questionId)
+        && isSignedIn()
+        && isValidQuestion(incoming())
+        && incoming().studentId == request.auth.uid
+        && incoming().status == 'open'
+        && incoming().answerText == ''
+        && incoming().answeredBy == ''
+        && incoming().answeredByName == ''
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && isApprovedMember();
+
+      allow update: if isValidId(questionId)
+        && isSignedIn()
+        && isValidQuestion(incoming())
+        && incoming().studentId == existing().studentId
+        && incoming().studentName == existing().studentName
+        && incoming().courseCode == existing().courseCode
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          // Action 1: Admin or Tutor answering the question and routing back to student
+          (isAnyAdmin() && incoming().status == 'answered' && incoming().answeredBy == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'answerText', 'answeredBy', 'answeredByName', 'updatedAt'])) ||
+          // Action 2: Student editing their own question text while still open
+          (existing().studentId == request.auth.uid && existing().status == 'open' && incoming().status == 'open' && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'questionText', 'updatedAt']))
+        );
+
+      allow delete: if isValidId(questionId) && isSupremeAdmin();
+    }
+
+    // Community Study Group Discussions
+    match /discussions/{discussionId} {
+      allow get: if isValidId(discussionId) && isApprovedMember();
+      allow list: if isSignedIn() && (existing().authorRole in ['supreme_obster', 'supreme_kunda5', 'admin', 'member'] || existing().courseCode >= '');
+
+      allow create: if isValidId(discussionId)
+        && isSignedIn()
+        && isValidDiscussion(incoming())
+        && incoming().authorId == request.auth.uid
+        && incoming().createdAt == request.time
+        && isApprovedMember();
+
+      allow update: if isValidId(discussionId)
+        && isSignedIn()
+        && isValidDiscussion(incoming())
+        && incoming().authorId == existing().authorId
+        && incoming().createdAt == existing().createdAt
+        && (
+          (existing().authorId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['message'])) ||
+          (isAnyAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['groupTitle', 'message']))
+        );
+
+      allow delete: if isValidId(discussionId) && (existing().authorId == request.auth.uid || isAnyAdmin());
+    }
+
+    // Automated Email Notification Logs
+    match /emailLogs/{logId} {
+      allow get: if isValidId(logId) && isSignedIn() && (existing().recipientUid == request.auth.uid || isAnyAdmin());
+      allow list: if isSignedIn() && (existing().recipientUid == request.auth.uid || isBootstrappedObster() || existing().eventType in ['APPROVED', 'REJECTED', 'RENEWED', 'ROLE_CHANGED']);
+
+      allow create: if isValidId(logId)
+        && isSignedIn()
+        && isValidEmailLog(incoming())
+        && incoming().sentByUid == request.auth.uid
+        && incoming().createdAt == request.time
+        && isSupremeAdmin()
+        && exists(/databases/$(database)/documents/users/$(incoming().recipientUid));
+
+      allow update: if false;
+      allow delete: if isValidId(logId) && isSupremeObster();
+    }
+  }
+}

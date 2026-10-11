@@ -1,0 +1,6 @@
+{
+  "name": "Apex Study Hub & Academic Portal",
+  "description": "A secure, multi-tiered educational web platform providing course dashboards, PDF/video learning materials, private assignment Q&A workflows, interactive study flashcards, and strict administrative membership governance.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,458 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Public and role profile of a registered platform member or administrator.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID of the user."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Full name or display handle (e.g., Obster, Kunda5)."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["supreme_obster", "supreme_kunda5", "admin", "member"],
+          "description": "Multi-tiered administrative hierarchy role."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "approved", "rejected", "expired"],
+          "description": "Account approval and expiration status."
+        },
+        "approvedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "ISO timestamp when membership was approved or renewed."
+        },
+        "expiresAt": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "ISO timestamp when ordinary member access expires (1 month after approval)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of registration."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last profile update."
+        }
+      },
+      "required": ["uid", "name", "role", "status", "approvedAt", "expiresAt", "createdAt", "updatedAt"]
+    },
+    "UserPrivate": {
+      "title": "UserPrivate",
+      "description": "Strictly isolated PII contact and credential record for a member.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Owner Firebase UID."
+        },
+        "email": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 150,
+          "format": "email",
+          "description": "Member email address."
+        },
+        "phone": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 30,
+          "description": "Member phone number collected during signup."
+        },
+        "passwordHash": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 256,
+          "description": "Hashed password credential for the account."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation server timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update server timestamp."
+        }
+      },
+      "required": ["uid", "email", "phone", "passwordHash", "createdAt", "updatedAt"]
+    },
+    "Course": {
+      "title": "Course",
+      "description": "Academic course module categorized by year and subject.",
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 20,
+          "pattern": "^[A-Z0-9\\-]+$",
+          "description": "Course code such as MA110, BI250, CS110."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120,
+          "description": "Full academic title of the course."
+        },
+        "year": {
+          "type": "number",
+          "enum": [1, 2, 3, 4],
+          "description": "Academic year (1 for First Year, 2 for Second Year)."
+        },
+        "subject": {
+          "type": "string",
+          "enum": ["Mathematics", "Biology", "Physics", "Chemistry", "Computer Science", "Languages"],
+          "description": "Academic discipline for color-coding and filtering."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 600,
+          "description": "Syllabus summary and learning objectives."
+        },
+        "createdBy": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the administrator who created the course."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        }
+      },
+      "required": ["code", "title", "year", "subject", "description", "createdBy", "createdAt"]
+    },
+    "Material": {
+      "title": "Material",
+      "description": "Uploaded PDF study notes or assignment question documents.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 150,
+          "description": "Document title."
+        },
+        "courseCode": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 20,
+          "description": "Associated course code (e.g., MA110)."
+        },
+        "category": {
+          "type": "string",
+          "enum": ["Notes", "Assignment Questions"],
+          "description": "Toggle categorization as either Notes or Assignment Questions."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 800,
+          "description": "Summary or abstract of the PDF material."
+        },
+        "fileUrl": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 700000,
+          "description": "Data URL or secure storage URL for the PDF document."
+        },
+        "fileName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180,
+          "description": "Original PDF file name."
+        },
+        "uploadedBy": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the uploading admin/tutor."
+        },
+        "uploaderName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Display name of the uploading admin/tutor."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Upload server timestamp."
+        }
+      },
+      "required": ["title", "courseCode", "category", "description", "fileUrl", "fileName", "uploadedBy", "uploaderName", "createdAt"]
+    },
+    "VideoTutorial": {
+      "title": "VideoTutorial",
+      "description": "Instructional video tutorial uploaded by an admin or tutor.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 150,
+          "description": "Video lecture title."
+        },
+        "courseCode": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 20,
+          "description": "Associated course code."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 600,
+          "description": "Lecture summary and key timestamps."
+        },
+        "videoUrl": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 700000,
+          "description": "Streamable video file URL or data URI."
+        },
+        "duration": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 30,
+          "description": "Formatted duration string (e.g., 18:45)."
+        },
+        "uploadedBy": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the uploading admin."
+        },
+        "uploaderName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Name of the instructor/admin."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Upload server timestamp."
+        }
+      },
+      "required": ["title", "courseCode", "description", "videoUrl", "duration", "uploadedBy", "uploaderName", "createdAt"]
+    },
+    "AssignmentQuestion": {
+      "title": "AssignmentQuestion",
+      "description": "Private assignment question submitted by a student and routed to admins for direct response.",
+      "type": "object",
+      "properties": {
+        "studentId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the student who asked the question."
+        },
+        "studentName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Name of the student."
+        },
+        "courseCode": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 20,
+          "description": "Course code for the question."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 150,
+          "description": "Brief subject of the assignment question."
+        },
+        "questionText": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 2500,
+          "description": "Detailed assignment question text."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["open", "answered"],
+          "description": "Whether the question is awaiting an answer or has been answered."
+        },
+        "answerText": {
+          "type": "string",
+          "maxLength": 4000,
+          "description": "Admin/Tutor response routed back to the student."
+        },
+        "answeredBy": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "UID of the admin who answered."
+        },
+        "answeredByName": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Name of the admin/tutor who answered."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Question submission server timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update/answer server timestamp."
+        }
+      },
+      "required": ["studentId", "studentName", "courseCode", "title", "questionText", "status", "answerText", "answeredBy", "answeredByName", "createdAt", "updatedAt"]
+    },
+    "DiscussionPost": {
+      "title": "DiscussionPost",
+      "description": "Community study group forum thread or collaborative peer note.",
+      "type": "object",
+      "properties": {
+        "authorId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the post author."
+        },
+        "authorName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Name of the author."
+        },
+        "authorRole": {
+          "type": "string",
+          "enum": ["supreme_obster", "supreme_kunda5", "admin", "member"],
+          "description": "Role of the author."
+        },
+        "courseCode": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 20,
+          "description": "Course code or study group topic."
+        },
+        "groupTitle": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120,
+          "description": "Collaborative study group name."
+        },
+        "message": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 1500,
+          "description": "Discussion content."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Post creation server timestamp."
+        }
+      },
+      "required": ["authorId", "authorName", "authorRole", "courseCode", "groupTitle", "message", "createdAt"]
+    },
+    "EmailLog": {
+      "title": "EmailLog",
+      "description": "Automated email notification dispatch log for membership approvals, rejections, and renewals.",
+      "type": "object",
+      "properties": {
+        "recipientUid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the recipient user."
+        },
+        "recipientEmail": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 150,
+          "description": "Destination email address."
+        },
+        "subject": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 200,
+          "description": "Email subject line."
+        },
+        "body": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 2000,
+          "description": "Automated email body content."
+        },
+        "eventType": {
+          "type": "string",
+          "enum": ["APPROVED", "REJECTED", "RENEWED", "ROLE_CHANGED"],
+          "description": "Triggering administrative event."
+        },
+        "sentByUid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the administrator who triggered the notification."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Dispatch server timestamp."
+        }
+      },
+      "required": ["recipientUid", "recipientEmail", "subject", "body", "eventType", "sentByUid", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Public profile, role, and membership expiration state."
+    },
+    "/users/{userId}/private/{docId}": {
+      "schema": { "$ref": "#/entities/UserPrivate" },
+      "description": "Isolated PII (email, phone, passwordHash) accessible strictly to owner or admins."
+    },
+    "/courses/{courseId}": {
+      "schema": { "$ref": "#/entities/Course" },
+      "description": "Categorized First-Year and Second-Year academic courses."
+    },
+    "/materials/{materialId}": {
+      "schema": { "$ref": "#/entities/Material" },
+      "description": "Uploaded PDF documents categorized as Notes or Assignment Questions."
+    },
+    "/videos/{videoId}": {
+      "schema": { "$ref": "#/entities/VideoTutorial" },
+      "description": "Instructional video tutorials uploaded by admins."
+    },
+    "/questions/{questionId}": {
+      "schema": { "$ref": "#/entities/AssignmentQuestion" },
+      "description": "Private student assignment questions and routed admin responses."
+    },
+    "/discussions/{discussionId}": {
+      "schema": { "$ref": "#/entities/DiscussionPost" },
+      "description": "Community study group discussions and peer forum posts."
+    },
+    "/emailLogs/{logId}": {
+      "schema": { "$ref": "#/entities/EmailLog" },
+      "description": "Automated email notification audit trail."
+    }
+  }
+}
